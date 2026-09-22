@@ -5,19 +5,26 @@ import Quiz from "./components/Quiz";
 import Result from "./components/Result";
 import Analytics from "./components/Analytics";
 import History from "./components/History";
+import QuestionBank from "./components/QuestionBank";
+import Wortschatz from "./components/Wortschatz";
+import Mistakes from "./components/Mistakes";
 import {
   buildExam, buildStateDrill, buildGeneralPractice, buildFromIds,
   EXAM_MINUTES, PASS_MARK,
 } from "./lib/exam";
 import { commitAttempt, getGamify, levelFor, getAttemptByHash, type CommitResult } from "./lib/storage";
+import { toggleShowEn } from "./lib/useShowEn";
 
 type Route =
   | { name: "home" }
+  | { name: "questions" }
+  | { name: "mistakes" }
   | { name: "progress" }
   | { name: "history" }
+  | { name: "vocab" }
   | { name: "test"; hash: string };
 
-type Origin = "exam" | "state" | "general" | "mistakes";
+type Origin = "exam" | "state" | "general" | "ids";
 
 interface Setup {
   questions: Question[];
@@ -34,8 +41,11 @@ interface Setup {
 function parseRoute(): Route {
   const h = window.location.hash.replace(/^#/, "");
   if (h.startsWith("/test/")) return { name: "test", hash: decodeURIComponent(h.slice(6)) };
+  if (h === "/questions") return { name: "questions" };
+  if (h === "/mistakes") return { name: "mistakes" };
   if (h === "/progress") return { name: "progress" };
   if (h === "/history") return { name: "history" };
+  if (h === "/vocab") return { name: "vocab" };
   return { name: "home" };
 }
 
@@ -53,6 +63,19 @@ export default function App() {
     const onHash = () => setRoute(parseRoute());
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  // Global shortcut: ` toggles the English translation everywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "`" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+      e.preventDefault();
+      toggleShowEn();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const navigate = (path: string) => {
@@ -79,10 +102,11 @@ export default function App() {
     const qs = buildGeneralPractice(n);
     start({ questions: qs, mode: "practice", stateCode: null, instantFeedback: true, countdownSec: null, passMark: qs.length, origin: "general", n });
   };
-  const startFromIds = (ids: string[]) => {
+  /** Run a specific set of question ids. `mode` distinguishes mistake-retakes from redo-same. */
+  const startFromIds = (ids: string[], mode: Mode = "mistakes") => {
     const qs = buildFromIds(ids);
     if (qs.length === 0) return;
-    start({ questions: qs, mode: "practice", stateCode: null, instantFeedback: true, countdownSec: null, passMark: qs.length, origin: "mistakes", ids });
+    start({ questions: qs, mode, stateCode: null, instantFeedback: true, countdownSec: null, passMark: qs.length, origin: "ids", ids });
   };
 
   const onFinish = (attempt: Attempt) => {
@@ -97,7 +121,8 @@ export default function App() {
   const retryLike = (a: Attempt) => {
     if (a.mode === "exam") return startExam(a.state ?? selectedState);
     if (a.mode === "state") return startStateDrill(a.state ?? selectedState);
-    return startFromIds(a.results.map((r) => r.id)); // practice → redo same set
+    if (a.mode === "mistakes") return startFromIds(a.results.map((r) => r.id), "mistakes");
+    return startFromIds(a.results.map((r) => r.id), "practice"); // practice → redo same set
   };
 
   const g = getGamify();
@@ -134,8 +159,11 @@ export default function App() {
       {!takingQuiz && (
         <div className="tabs">
           {tab("/", route.name === "home", "🏠 Practice")}
+          {tab("/questions", route.name === "questions", "📚 Question bank")}
+          {tab("/mistakes", route.name === "mistakes", "🔁 Mistakes")}
           {tab("/progress", route.name === "progress", "📊 Progress")}
           {tab("/history", route.name === "history", "🗂️ History")}
+          {tab("/vocab", route.name === "vocab", "🔤 Wörtschatz")}
         </div>
       )}
 
@@ -159,17 +187,25 @@ export default function App() {
           onStartExam={() => startExam()}
           onStartStateDrill={() => startStateDrill()}
           onStartGeneralPractice={startGeneral}
-          onReviewMistakes={startFromIds}
+          onReviewMistakes={(ids) => startFromIds(ids, "mistakes")}
         />
       )}
 
+      {!takingQuiz && route.name === "questions" && <QuestionBank />}
+
+      {!takingQuiz && route.name === "mistakes" && (
+        <Mistakes onRedo={(ids) => startFromIds(ids, "mistakes")} />
+      )}
+
       {!takingQuiz && route.name === "progress" && (
-        <Analytics onPracticeWeak={startFromIds} onChanged={refresh} />
+        <Analytics onPracticeWeak={(ids) => startFromIds(ids, "mistakes")} onChanged={refresh} />
       )}
 
       {!takingQuiz && route.name === "history" && (
         <History onOpen={(hash) => navigate(`/test/${hash}`)} />
       )}
+
+      {!takingQuiz && route.name === "vocab" && <Wortschatz />}
 
       {!takingQuiz && route.name === "test" && (() => {
         const attempt = getAttemptByHash(route.hash);
@@ -188,8 +224,8 @@ export default function App() {
             attempt={attempt}
             justFinished={justFinished?.attempt.hash === attempt.hash ? justFinished : null}
             onRetry={() => retryLike(attempt)}
-            onRedoSame={() => startFromIds(attempt.results.map((r) => r.id))}
-            onPracticeMistakes={() => startFromIds(attempt.results.filter((r) => !r.correct).map((r) => r.id))}
+            onRedoSame={() => startFromIds(attempt.results.map((r) => r.id), "practice")}
+            onPracticeMistakes={() => startFromIds(attempt.results.filter((r) => !r.correct).map((r) => r.id), "mistakes")}
           />
         );
       })()}

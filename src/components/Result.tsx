@@ -13,7 +13,7 @@ interface Props {
   onPracticeMistakes: () => void;
 }
 
-const MODE_LABEL: Record<string, string> = { exam: "Mock exam", state: "State drill", practice: "Practice" };
+const MODE_LABEL: Record<string, string> = { exam: "Mock exam", state: "State drill", practice: "Practice", mistakes: "Mistake review" };
 
 export default function Result({ attempt, justFinished, onRetry, onRedoSame, onPracticeMistakes }: Props) {
   const [showAll, setShowAll] = useState(false);

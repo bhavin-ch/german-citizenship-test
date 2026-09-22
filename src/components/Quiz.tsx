@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Attempt, Choice, Mode, Question, QuestionResult } from "../types";
 import { imageFor } from "../lib/exam";
 import { hashIds } from "../lib/hash";
+import { useShowEn } from "../lib/useShowEn";
+import ClickableText from "./ClickableText";
 
 const CHOICES: Choice[] = ["a", "b", "c", "d"];
 
@@ -26,9 +28,7 @@ export default function Quiz(props: Props) {
   const { questions, mode, stateCode, instantFeedback, countdownSec, passMark } = props;
   const [idx, setIdx] = useState(0);
   const [chosen, setChosen] = useState<Record<string, Choice>>({});
-  const [showEn, setShowEn] = useState<boolean>(() => {
-    try { return localStorage.getItem("ebt.showEn") === "1"; } catch { return false; }
-  });
+  const [showEn, setShowEn] = useShowEn();
   const [elapsed, setElapsed] = useState(0);
   const [zoom, setZoom] = useState(false);
   const startRef = useRef(Date.now());
@@ -44,10 +44,6 @@ export default function Quiz(props: Props) {
   // In practice/state (instant feedback) answers lock once picked. Exam lets you revise.
   const reveal = instantFeedback && currentAnswered;
   const canGoNext = !(instantFeedback && !currentAnswered);
-
-  useEffect(() => {
-    try { localStorage.setItem("ebt.showEn", showEn ? "1" : "0"); } catch { /* ignore */ }
-  }, [showEn]);
 
   // timer tick
   useEffect(() => {
@@ -101,19 +97,19 @@ export default function Quiz(props: Props) {
   };
   const prev = () => { if (!isFirst) setIdx((i) => i - 1); };
 
-  // keyboard shortcuts: 1-4 answer · , prev · . next · ` zoom
+  // keyboard shortcuts: 1-4 answer · , prev · . next · z zoom  (` = translate is global, see App)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
       if (zoom) {
-        if (e.key === "Escape" || e.key === "`") { e.preventDefault(); setZoom(false); }
+        if (e.key === "Escape" || e.key === "z") { e.preventDefault(); setZoom(false); }
         return;
       }
       if (e.key >= "1" && e.key <= "4") { e.preventDefault(); select(CHOICES[Number(e.key) - 1]); }
       else if (e.key === ",") { e.preventDefault(); prev(); }
       else if (e.key === ".") { e.preventDefault(); next(); }
-      else if (e.key === "`") { e.preventDefault(); if (imgSrc) setZoom(true); }
+      else if (e.key === "z") { e.preventDefault(); if (imgSrc) setZoom(true); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -129,11 +125,6 @@ export default function Quiz(props: Props) {
     if (c === chosen[q.id]) return "opt wrong";
     return "opt";
   };
-
-  const explanation = useMemo(() => {
-    if (!q) return null;
-    return showEn && en?.context ? en.context : de?.context;
-  }, [q, showEn, en, de]);
 
   if (!q) return null;
 
@@ -161,7 +152,7 @@ export default function Quiz(props: Props) {
           </span>
         </div>
 
-        <p className="qtext">{de.question}</p>
+        <p className="qtext"><ClickableText de={de.question} en={en.question} /></p>
         {showEn && en.question && <p className="qtext-en">{en.question}</p>}
 
         {imgSrc && (
@@ -172,7 +163,7 @@ export default function Quiz(props: Props) {
               alt="question figure"
               loading="lazy"
               onClick={() => setZoom(true)}
-              title="Click to zoom (`)"
+              title="Click to zoom (z)"
             />
             <button className="zoom-hint" onClick={() => setZoom(true)}>🔍 zoom</button>
           </div>
@@ -199,17 +190,20 @@ export default function Quiz(props: Props) {
             >
               <span className="key">{i + 1}</span>
               <span>
-                {de[c]}
+                <ClickableText de={de[c]} en={en[c]} />
                 {showEn && en[c] && <span className="en">{en[c]}</span>}
               </span>
             </button>
           ))}
         </div>
 
-        {reveal && explanation && (
+        {reveal && (de.context || en.context) && (
           <div className="explain">
             <b>{chosen[q.id] === q.solution ? "✅ Correct." : "❌ Not quite."}</b>{" "}
-            {explanation}
+            <ClickableText de={de.context ?? ""} />
+            {showEn && en.context && (
+              <div style={{ marginTop: 8, color: "var(--muted)", fontStyle: "italic" }}>{en.context}</div>
+            )}
           </div>
         )}
 
@@ -229,14 +223,15 @@ export default function Quiz(props: Props) {
         </div>
 
         <div className="kbd-hint">
-          Keys: <kbd>1</kbd>–<kbd>4</kbd> answer · <kbd>,</kbd> prev · <kbd>.</kbd> next{imgSrc && <> · <kbd>`</kbd> zoom</>}
+          Keys: <kbd>1</kbd>–<kbd>4</kbd> answer · <kbd>,</kbd> prev · <kbd>.</kbd> next · <kbd>`</kbd> translate{imgSrc && <> · <kbd>z</kbd> zoom</>}
+          {" "}· ⌘/Ctrl-click a word to save it
         </div>
       </div>
 
       {zoom && imgSrc && (
         <div className="lightbox" onClick={() => setZoom(false)}>
           <img src={imgSrc} alt="question figure enlarged" onClick={(e) => e.stopPropagation()} />
-          <div className="lb-hint">Click anywhere, <kbd>Esc</kbd> or <kbd>`</kbd> to close</div>
+          <div className="lb-hint">Click anywhere, <kbd>Esc</kbd> or <kbd>z</kbd> to close</div>
         </div>
       )}
     </div>

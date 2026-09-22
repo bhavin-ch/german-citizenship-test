@@ -2,7 +2,7 @@ import { getAttempts } from "../lib/storage";
 import { STATE_BY_CODE } from "../data/states";
 import { PASS_MARK } from "../lib/exam";
 
-const MODE_LABEL: Record<string, string> = { exam: "🧪 Mock", state: "📍 State", practice: "📖 Practice" };
+const MODE_LABEL: Record<string, string> = { exam: "🧪 Mock", state: "📍 State", practice: "📖 Practice", mistakes: "🔁 Mistakes" };
 
 interface Props {
   onOpen: (hash: string) => void;

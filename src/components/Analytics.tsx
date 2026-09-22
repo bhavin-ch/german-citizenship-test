@@ -49,17 +49,19 @@ export default function Analytics({ onPracticeWeak, onChanged }: Props) {
   const chartData = useMemo(() => {
     const fmtDate = (d: string) =>
       new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-    const groups: Record<"mock" | "state" | "practice", typeof attempts> = { mock: [], state: [], practice: [] };
+    const groups: Record<"mock" | "state" | "practice" | "mistakes", typeof attempts> =
+      { mock: [], state: [], practice: [], mistakes: [] };
     for (const a of attempts) {
       if (a.mode === "exam") groups.mock.push(a);
       else if (a.mode === "state") groups.state.push(a);
       else if (a.mode === "practice") groups.practice.push(a);
+      else if (a.mode === "mistakes") groups.mistakes.push(a);
     }
-    const maxLen = Math.max(groups.mock.length, groups.state.length, groups.practice.length);
+    const maxLen = Math.max(groups.mock.length, groups.state.length, groups.practice.length, groups.mistakes.length);
     const pct = (a: (typeof attempts)[number]) => Math.round((a.correct / a.total) * 100);
     return Array.from({ length: maxLen }, (_, j) => {
       const row: Record<string, number | string | null> = { round: `#${j + 1}` };
-      (["mock", "state", "practice"] as const).forEach((k) => {
+      (["mock", "state", "practice", "mistakes"] as const).forEach((k) => {
         const a = groups[k][j];
         row[k] = a ? pct(a) : null;
         row[`${k}Date`] = a ? fmtDate(a.date) : "";
@@ -174,6 +176,7 @@ export default function Analytics({ onPracticeWeak, onChanged }: Props) {
               <Line name="Mock" type="monotone" dataKey="mock" stroke="var(--brand)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
               <Line name="State" type="monotone" dataKey="state" stroke="var(--green)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
               <Line name="Practice" type="monotone" dataKey="practice" stroke="var(--amber)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
+              <Line name="Mistakes" type="monotone" dataKey="mistakes" stroke="var(--red)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>

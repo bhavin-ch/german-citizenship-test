@@ -1,4 +1,4 @@
-import type { Attempt, Gamify, QuestionStat } from "../types";
+import type { Attempt, Gamify, QuestionStat, VocabWord } from "../types";
 import { hashIds } from "./hash";
 
 const KEYS = {
@@ -6,7 +6,12 @@ const KEYS = {
   stats: "ebt.questionStats",
   mistakes: "ebt.mistakes",
   gamify: "ebt.gamify",
+  vocab: "ebt.vocab",
 } as const;
+
+// Normal practice sizes; anything else that was labelled "practice" was really a
+// mistake/missed-question retake and is reclassified to the "mistakes" mode.
+const PRACTICE_SIZES = new Set([20, 50]);
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -28,11 +33,16 @@ function write(key: string, value: unknown) {
 // ---- Attempts (exam/practice history) ----
 export function getAttempts(): Attempt[] {
   const attempts = read<Attempt[]>(KEYS.attempts, []);
-  // Backfill hashes for attempts saved before hashing existed (no data loss).
   let changed = false;
   for (const a of attempts) {
+    // Backfill hashes for attempts saved before hashing existed (no data loss).
     if (!a.hash) {
       a.hash = hashIds(a.results.map((r) => r.id));
+      changed = true;
+    }
+    // Reclassify old mistake-retakes that were logged as "practice".
+    if (a.mode === "practice" && !PRACTICE_SIZES.has(a.total)) {
+      a.mode = "mistakes";
       changed = true;
     }
   }
@@ -156,11 +166,41 @@ export function commitAttempt(attempt: Attempt): CommitResult {
   if (totalSeen >= 460) award("answered-460");
   if (g.streak >= 3) award("streak-3");
   if (g.streak >= 7) award("streak-7");
-  if (mistakes.size === 0 && attempt.mode === "practice") award("clean-slate");
+  if (mistakes.size === 0 && attempt.mode === "mistakes") award("clean-slate");
 
   write(KEYS.gamify, g);
 
   return { attempt, gamify: g, newBadges, xpGained };
+}
+
+// ---- Vocabulary (user-added words) ----
+export const getVocab = (): VocabWord[] => read<VocabWord[]>(KEYS.vocab, []);
+
+export function addVocab(term: string, source?: { de: string; en: string }, note?: string): VocabWord | null {
+  const t = term.trim();
+  if (!t) return null;
+  const vocab = getVocab();
+  // De-dupe on the lowercased term.
+  if (vocab.some((v) => v.term.toLowerCase() === t.toLowerCase())) return null;
+  const word: VocabWord = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    term: t,
+    source,
+    note,
+    added: new Date().toISOString(),
+  };
+  vocab.push(word);
+  write(KEYS.vocab, vocab);
+  return word;
+}
+
+export function removeVocab(id: string) {
+  write(KEYS.vocab, getVocab().filter((v) => v.id !== id));
+}
+
+export function hasVocab(term: string): boolean {
+  const t = term.trim().toLowerCase();
+  return getVocab().some((v) => v.term.toLowerCase() === t);
 }
 
 export function resetAll() {

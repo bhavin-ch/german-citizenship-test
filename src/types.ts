@@ -21,7 +21,15 @@ export interface Question {
   en: Localized;
 }
 
-export type Mode = "exam" | "practice" | "state";
+export type Mode = "exam" | "practice" | "state" | "mistakes";
+
+export interface VocabWord {
+  id: string;
+  term: string; // the German word/phrase as saved
+  note?: string;
+  source?: { de: string; en: string }; // sentence it was picked from, for context
+  added: string; // ISO
+}
 
 export interface QuestionResult {
   id: string;
