@@ -64,6 +64,7 @@ export default function Home(props: Props) {
             <div className="btn-row">
               <button className="btn secondary" onClick={() => props.onStartGeneralPractice(20)}>20 questions</button>
               <button className="btn secondary" onClick={() => props.onStartGeneralPractice(50)}>50</button>
+              <button className="btn secondary" onClick={() => props.onStartGeneralPractice(300)}>All 300</button>
             </div>
           </div>
 

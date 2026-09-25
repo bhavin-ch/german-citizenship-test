@@ -11,7 +11,7 @@ const KEYS = {
 
 // Normal practice sizes; anything else that was labelled "practice" was really a
 // mistake/missed-question retake and is reclassified to the "mistakes" mode.
-const PRACTICE_SIZES = new Set([20, 50]);
+const PRACTICE_SIZES = new Set([20, 50, 300]);
 
 function read<T>(key: string, fallback: T): T {
   try {
