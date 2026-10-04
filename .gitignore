@@ -4,3 +4,26 @@ dist
 .DS_Store
 tsconfig.tsbuildinfo
 .claude/
+
+# === cloud-backup gitignore (auto) ===
+.DS_Store
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+dist/
+build/
+.next/
+.turbo/
+coverage/
+.terraform/
+*.tfstate
+*.tfstate.*
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.local/
+*.log
